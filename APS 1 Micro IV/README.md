@@ -1,6 +1,6 @@
 # Economia do Crime e Leis Right-to-Carry (RTC) nos EUA
 
-Este projeto investiga o impacto das leis de "right-to-carry" (RTC) na taxa de crimes contra a propriedade nos Estados Unidos, com base em dados em painel que cobrem diversos estados ao longo de 36 anos. A análise envolve um modelo microeconômico e técnicas econométricas avançadas, com foco em entender se a presença dessas leis está associada a variações nos índices de criminalidade. Nesse arquivo, você vai encontrar o código em RMarkdown, o relatório gerado em .tex, além da base de dados para replicação e os PNGs dos gráficos gerados.
+Este projeto investiga o impacto das leis de "right-to-carry" (RTC) na taxa de crimes contra a propriedade nos Estados Unidos, com base em dados em painel que cobrem diversos estados ao longo de 36 anos. A análise envolve um modelo microeconômico e técnicas econométricas avançadas, com foco em entender se a presença dessas leis está associada a variações nos índices de criminalidade. Nesse arquivo, você vai encontrar o código em RMarkdown e em script, o relatório gerado em .tex, além da base de dados para replicação e os PNGs dos gráficos gerados.
 
 ## Estrutura do Projeto
 
