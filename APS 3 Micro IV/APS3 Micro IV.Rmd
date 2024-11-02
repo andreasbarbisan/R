@@ -18,6 +18,8 @@ lang: pt-BR
 fontsize: 11pt 
 geometry: margin=0.9in
 ---
+
+
 # WD, Setup & Data
 
 Este documento contém a análise do Projeto STAR, que visa investigar como a formação do professor afeta o impacto do tamanho da turma no desempenho dos alunos em Português. A análise é dividida em cinco etapas principais: formulação da teoria microeconômica, comparação das características dos estudantes, estimação econométrica, análise dos efeitos fixos da escola, e verificação da aleatorização.
