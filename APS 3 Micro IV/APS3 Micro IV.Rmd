@@ -1,0 +1,173 @@
+---
+title: "APS 3 Micro IV 2024.2"
+author: Andreas Azambuja Barbisan, Bruno Frasão Brazil Leiros, Diogo Roecker Cardozo
+  e Lorena Liz Giusti e Santos
+date: "2024-10-07"
+output:
+  html_document:
+    highlight: textmate
+    theme: flatly
+    number_sections: yes
+    toc: yes
+    toc_float:
+      collapsed: no
+      smooth_scroll: no
+  pdf_document:
+    toc: yes
+lang: pt-BR
+fontsize: 11pt 
+geometry: margin=0.9in
+---
+# WD, Setup & Data
+
+Este documento contém a análise do Projeto STAR, que visa investigar como a formação do professor afeta o impacto do tamanho da turma no desempenho dos alunos em Português. A análise é dividida em cinco etapas principais: formulação da teoria microeconômica, comparação das características dos estudantes, estimação econométrica, análise dos efeitos fixos da escola, e verificação da aleatorização.
+
+```{r setup, message=FALSE, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+Sys.setlocale("LC_CTYPE", "pt_BR.UTF-8")
+# Definição de WD
+setwd("C:/Andreas/Insper/Semestre 5/Microeconomia 4/APS3")
+
+# Bibliotecas
+library(dplyr)
+library(plm) 
+library(tidyverse)
+library(lmtest)
+library(stargazer) 
+
+# Base
+
+star_data = read.csv("Star.csv")
+
+# Balanceamento
+
+pdim(star_data)
+
+```
+
+
+
+
+# Análise Descritiva
+
+Nesta etapa, vamos calcular estatísticas descritivas da variável de score de Português (substituída pela variável `readscore`) e da formação dos professores (`tchmasters`) para cada tipo de turma (small, regular, aide).
+
+```{r descriptive_stats, echo=TRUE, message=FALSE, warning=FALSE}
+star_data = star_data |> 
+  mutate(
+    small = as.factor(small),
+    regular = as.factor(regular),
+    aide = as.factor(aide)
+  )
+
+# Gerar as estatísticas descritivas
+descriptive_stats = star_data |> 
+  group_by(small, regular, aide) |> 
+  summarise(
+    mean_readscore = mean(readscore, na.rm = TRUE),
+    mean_tchmasters = mean(tchmasters, na.rm = TRUE),
+    n = n()
+  ) |> 
+  as.data.frame()  # Transformar o resultado em data frame
+
+# Usando stargazer para exibir a tabela
+stargazer(descriptive_stats, type = "html", summary = FALSE, title = "Estatísticas Descritivas por Tipo de Turma", 
+          out = "estatisticas_descritivas.html")
+
+```
+
+Os resultados mostram a média dos scores em Português e a proporção de professores com mestrado para cada tipo de turma. Podemos interpretar se há diferenças significativas entre turmas pequenas, regulares e com assistente.
+
+
+
+## Etapa III: Estimação do Modelo de Interesse
+
+Propomos um modelo de regressão múltipla para testar a hipótese econômica, onde a variável dependente é o score de leitura (`readscore`), e as variáveis independentes incluem o tamanho da turma (`small`, `regular`, `aide`), se o professor possui mestrado (`tchmasters`), e a interação entre o tamanho da turma e a formação do professor.
+
+```{r regression_model, echo=TRUE, message=FALSE, warning=FALSE}
+# Modelo de regressão múltipla - Efeitos aleatórios
+
+star_data$schid = as.factor(star_data$schid)
+
+model_re = plm(
+  readscore ~ small + regular + aide +
+  small * tchmasters + regular * tchmasters + aide * tchmasters +
+  boy + black + freelunch,
+  data = star_data,
+  index = "schid",
+  model = "random"
+)
+# Resumo do modelo com stargazer
+stargazer(model_re, type = "html", title = "Resultados da Regressão Múltipla", out = "model_summary.html")
+```
+
+Os coeficientes das interações (`small:tchmasters`, `regular:tchmasters`, `aide:tchmasters`) indicam como a formação do professor modera o efeito de cada tipo de turma no desempenho dos alunos. Observando os coeficientes e seus níveis de significância, podemos avaliar se a formação do professor amplifica o efeito das turmas menores e se há uma diferença significativa entre os tipos de turmas. Por exemplo, um coeficiente significativo para `small:tchmasters` indicaria que professores com mestrado têm um impacto diferenciado em turmas menores.
+
+
+
+## Etapa IV: Efeitos Fixos da Escola
+
+Para considerar os efeitos fixos da escola, adicionamos variáveis indicativas (`dummy`) para cada uma das 78 escolas no modelo. Isso nos ajuda a controlar fatores não observáveis que podem afetar o desempenho dos alunos.
+
+```{r fixed_effects, echo=TRUE, message=FALSE, warning=FALSE}
+# Modelo com efeitos fixos da escola
+model_fe = plm(
+  readscore ~ small + regular + aide +
+  small * tchmasters + regular * tchmasters + aide * tchmasters +
+  boy + black + freelunch,
+  data = star_data,
+  index = "schid",
+  model = "within")
+
+# Realizar o teste de Hausman
+hausman_test <- phtest(model_fe, model_re)
+
+# Preparar o output do teste de Hausman para o stargazer
+hausman_result <- data.frame(
+  Test = "Hausman Test",
+  ChiSquare = hausman_test$statistic,
+  df = hausman_test$parameter,
+  p_value = hausman_test$p.value
+)
+
+# Usando stargazer para exibir os resultados das regressões e do teste de Hausman
+stargazer(
+  model_fe, model_re,
+  type = "html",
+  title = "Modelos de Efeitos Fixos e Aleatórios com Teste de Hausman",
+  keep.stat = c("n", "rsq", "adj.rsq", "f"),
+  omit = "schid",  # Omitir os efeitos fixos das escolas do output
+  add.lines = list(
+    c("Efeitos Fixos", "Sim", "Não"),  # Indicar quais modelos têm efeitos fixos
+    c("Teste de Hausman", paste("Chi-Square:", round(hausman_test$statistic, 3))),
+    c("df", hausman_test$parameter),
+    c("p-value", round(hausman_test$p.value, 3))
+  ),
+  out = "regression_with_hausman.html"
+)
+
+```
+
+
+Os efeitos fixos das escolas são testados para verificar se são significativos. A análise do teste de Hausman compara os modelos com e sem efeitos fixos, ajudando a determinar se os efeitos fixos melhoram significativamente o ajuste do modelo. Se o valor-p atrelado ao teste for inferior ao nível de significância, isso sugere que há fatores relacionados às escolas que influenciam o desempenho dos alunos, portanto o modelo de efeitos fixos é mais recomendado.
+
+
+
+
+## Etapa V: Verificação da Aleatorização
+
+Para verificar se a aleatorização foi bem-feita, estimamos um modelo de probabilidade linear (`lm`) que regressa a variável `small` sobre outras características explicativas dos alunos. Se a aleatorização foi bem-sucedida, esperamos coeficientes não significativos.
+
+```{r randomization_check, echo=TRUE, message=FALSE, warning=FALSE}
+# Modelo de probabilidade linear para checar aleatorização
+randomization_model = lm(small ~ boy + black + freelunch, data = star_data)
+
+# Resumo do modelo de verificação da aleatorização com stargazer
+stargazer(randomization_model, type = "html", title = "Verificação da Aleatorização", out = "randomization_check_summary.html")
+```
+
+Os coeficientes não significativos indicariam que não há relação sistemática entre o tamanho da turma e as características dos alunos, sugerindo que a aleatorização foi bem conduzida. Se encontrarmos coeficientes significativos, isso pode sugerir problemas na aleatorização, como vieses devido a fatores não observados.
+
+## Conclusão
+Nesta análise, investigamos como a formação do professor afeta o impacto do tamanho da turma no desempenho dos alunos em Português. Utilizamos técnicas de estatística descritiva, regressão múltipla, controle de efeitos fixos e verificação da aleatorização. Os resultados indicam que a formação do professor pode, de fato, amplificar o efeito positivo das turmas menores no desempenho dos alunos. A análise nos permitiu observar mais claramente a significância dos coeficientes, o que é fundamental para discutir a robustez das nossas conclusões.
+
