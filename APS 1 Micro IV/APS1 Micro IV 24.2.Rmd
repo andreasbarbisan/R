@@ -8,6 +8,7 @@ lang: pt-BR
 fontsize: 11pt 
 geometry: margin=0.9in
 ---
+
 # WD
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
