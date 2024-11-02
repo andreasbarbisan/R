@@ -20,7 +20,7 @@ Esse repositório armazena alguns os meus projetos feitos em R e RMarkdown elabo
    - **Metodologia:** A análise inclui regressões múltiplas com efeitos fixos por escola, além de uma verificação de aleatorização para assegurar a robustez dos resultados.
    - **Resultados Esperados:** Avaliar a importância do tamanho da turma e da qualificação do professor na melhoria do desempenho dos alunos.
 
-### 4. APS2 Estat2 - Estatística e Mercado de Streaming Musical
+### 4. APS2 Estat1 - Estatística e Mercado de Streaming Musical
    - **Descrição:** Este projeto investiga o mercado de streaming musical, analisando as diferenças de consumo entre Spotify e YouTube Music. A análise examina os fatores que influenciam o sucesso das músicas em cada plataforma e explora a associação entre o desempenho das músicas em ambas.
    - **Metodologia:** Inclui uma análise exploratória das variáveis, regressões para identificar características associadas ao sucesso no Spotify e uma comparação do sucesso das músicas nas duas plataformas.
    - **Resultados Esperados:** Identificar padrões de consumo em plataformas diferentes e entender os fatores de sucesso no mercado de streaming musical.
