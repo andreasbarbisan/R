@@ -1,6 +1,6 @@
 # Economia do Gênero e Modelos de Variável Dependente Binária
 
-Este projeto explora a influência da identidade de gênero no bem-estar subjetivo utilizando dados da World Values Survey (WVS). Focamos na relação entre as atribuições de responsabilidades de gênero no domicílio e a percepção de felicidade, analisando como essas dinâmicas impactam o bem-estar. A análise inclui o uso de modelos de variável dependente binária para estimar essa influência, considerando variáveis explicativas socioeconômicas e culturais. Nesse arquivo, você vai encontrar o código em RMarkdown e o relatório gerado em Word.
+Este projeto explora a influência da identidade de gênero no bem-estar subjetivo utilizando dados da World Values Survey (WVS). Focamos na relação entre as atribuições de responsabilidades de gênero no domicílio e a percepção de felicidade, analisando como essas dinâmicas impactam o bem-estar. A análise inclui o uso de modelos de variável dependente binária para estimar essa influência, considerando variáveis explicativas socioeconômicas e culturais. Nesse arquivo, você vai encontrar o código em RMarkdown e o relatório gerado em Word. A base de dados pode ser encontrada no site da WVS (https://www.worldvaluessurvey.org/wvs.jsp), onde foi usada a WVS 7.
 
 
 
