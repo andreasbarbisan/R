@@ -18,6 +18,8 @@ lang: pt-BR
 fontsize: 11pt 
 geometry: margin=0.9in
 ---
+
+
 # WD, Setup & Data
 
 Este chunk define as configurações iniciais do ambiente de trabalho para a análise dos dados. Primeiro, o diretório de trabalho é definido para o caminho específico onde os arquivos estão localizados. Em seguida, as bibliotecas necessárias são carregadas, que são fundamentais para a manipulação dos dados, análise de regressão e geração de relatórios. A base de dados "WVS_Cross-National_Wave_7_csv_v6_0.csv" é então carregada, restringindo as colunas selecionadas para incluir variáveis relevantes ao estudo, como variáveis demográficas e questões específicas relacionadas ao tema da pesquisa. Finalmente, o comando `pdim()` é utilizado para verificar a estrutura de balanceamento do painel de dados, assegurando a correta organização para as análises subsequentes.
