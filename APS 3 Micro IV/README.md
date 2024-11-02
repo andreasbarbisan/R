@@ -1,6 +1,6 @@
 # Economia da Educação e o Projeto STAR
 
-Este projeto explora o impacto do tamanho de turmas e da formação dos professores no desempenho dos alunos, usando dados do Projeto STAR (Student-Teacher Achievement Ratio). O estudo investiga como o nível educacional do professor pode moderar o efeito de turmas menores no aprendizado, focando na disciplina de Português. Utilizando técnicas econométricas e análise experimental, este projeto visa fornecer insights sobre os fatores que influenciam a qualidade da educação. Aqui, você vai encontrar a base em .csv, o código em RMarkdown e o relatório em Word.
+Este projeto explora o impacto do tamanho de turmas e da formação dos professores no desempenho dos alunos, usando dados do Projeto STAR (Student-Teacher Achievement Ratio). O estudo investiga como o nível educacional do professor pode moderar o efeito de turmas menores no aprendizado, focando na disciplina de Português. Utilizando técnicas econométricas e análise experimental, este projeto visa fornecer insights sobre os fatores que influenciam a qualidade da educação. Aqui, você vai encontrar a base em .csv, o código em RMarkdown e Script e o relatório em Word.
 
 ## Estrutura do Projeto
 
