@@ -1,0 +1,505 @@
+#' ---
+#' title: "Trabalho Final Microeconomia IV"
+#' author: Andreas Azambuja Barbisan, Bruno Frasão Brazil Leiros, Diogo Roecker Cardozo
+#'   e Lorena Liz Giusti e Santos
+#' date: "2024-10-18"
+#' output:
+#'   pdf_document:
+#'     toc: yes
+#'   html_document:
+#'     highlight: textmate
+#'     theme: flatly
+#'     number_sections: yes
+#'     toc: yes
+#'     toc_float:
+#'       collapsed: no
+#'       smooth_scroll: no
+#' lang: pt-BR
+#' fontsize: 11pt 
+#' geometry: margin=0.9in
+#' ---
+#' # - WD, Setup & Data
+#' 
+#' Este chunk define as configurações iniciais do ambiente de trabalho para a análise dos dados. Primeiro, o diretório de trabalho é definido para o caminho específico onde os arquivos estão localizados. Em seguida, as bibliotecas necessárias são carregadas, que são fundamentais para a manipulação dos dados, análise de regressão e geração de relatórios. A base de dados XXXXXXXXXXXXXXxXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXx    
+#' 
+#' 
+## ----setup, include=FALSE----------------------------------------------------------------------------------------
+knitr::opts_chunk$set(echo = TRUE)
+Sys.setlocale("LC_CTYPE", "pt_BR.UTF-8")
+# Definição de WD
+setwd("C:/Andreas/Insper/Semestre 5/Microeconomia 4/TrabalhoFinal")
+
+
+# Bibliotecas
+library(dplyr)
+library(plm) 
+library(tidyverse)
+library(stargazer) 
+library(readxl)
+library(purrr)
+library(did)
+library(learningtower)
+
+#' 
+## ----dataset + manipulação de dados, include = FALSE-------------------------------------------------------------
+# Ler bases
+saresp2011 = read_excel("SARESP2011.xlsx") |> rename_with(tolower) |> mutate(ano = 2011, medprof = as.numeric(gsub(",", ".", medprof))) 
+
+saresp2012 = read_excel("SARESP2012.xlsx") |> rename_with(tolower) |> mutate(ano = 2012, medprof = as.numeric(gsub(",", ".", medprof)))
+
+saresp2013 = read_excel("SARESP2013.xlsx") |> rename_with(tolower) |> mutate(ano = 2013, medprof = as.numeric(gsub(",", ".", medprof)))
+
+saresp2014 = read_excel("SARESP2014.xlsx") |> rename_with(tolower) |> mutate(ano = 2014, medprof = as.numeric(gsub(",", ".", medprof)))
+
+saresp2015 = read_excel("SARESP2015.xlsx") |> rename_with(tolower) |> mutate(ano = 2015, medprof = as.numeric(gsub(",", ".", medprof)))
+
+saresp2016 = read_excel("SARESP2016.xlsx") |> rename_with(tolower) |> mutate(ano = 2016, medprof = as.numeric(gsub(",", ".", medprof)))
+
+saresp2017 = read_excel("SARESP2017.xlsx") |> rename_with(tolower) |> mutate(ano = 2017, medprof = as.numeric(gsub(",", ".", medprof)))
+
+saresp2018 = read_excel("SARESP2018.xlsx") |> rename_with(tolower) |> mutate(ano = 2018, medprof = as.numeric(gsub(",", ".", medprof)))
+
+#' 
+#' 
+## ----manipular bases, include = FALSE----------------------------------------------------------------------------
+# Unir em um único dataframe
+base = rbind(saresp2011, saresp2012, saresp2013, saresp2014, saresp2015, saresp2016, saresp2017, saresp2018)
+
+
+# Importar base de quando a escola aderiu ao programa integral
+escolaspei = read_excel("ESCOLAS PEI_2023.xlsx") |> rename_with(tolower)
+
+
+# Criar dummies de escola integral na base de dados
+base <- base |> 
+  mutate(integral_dummy = ifelse(is.na(escolaspei$ano_adesao[match(codesc, escolaspei$codesc)]) | ano > 2018, 0, ifelse(ano >= escolaspei$ano_adesao[match(codesc, escolaspei$codesc)], 1, 0)))
+
+
+
+# Adicionar ano de adesão na coluna
+base = base  |> 
+  mutate(ano_adesao = escolaspei$ano_adesao[match(codesc, escolaspei$codesc)])
+
+
+# Tirar escolas que não sejam estaduais - pois não fazem parte do programa
+base = base |> 
+  filter(nomedepbol == "Rede Estadual")
+
+
+# Preciso do resultado geral, então dropar as que não são geral
+base = base |> 
+  filter(periodo == "GERAL")
+
+
+# Dropar colunas que não serão utilizadas
+base = base  |> 
+  select(-depadm, -depbol, -nomesc, -cod_per, -periodo, -co_comp)
+
+
+# NA = 0
+base = base |> 
+  mutate(ano_adesao = ifelse(is.na(ano_adesao), 0, ano_adesao))
+
+
+# Dropar NAs no medprof
+base = base |> 
+    drop_na(medprof)
+
+
+# Dados EM - Matemática
+ensino_medio_matematica = base |> filter(serie_ano == "EM-3ª série", ds_comp == "MATEMÁTICA")
+
+
+# Dados EM - Português 
+ensino_medio_lp = base |> filter(serie_ano == "EM-3ª série", ds_comp == "LÍNGUA PORTUGUESA")
+
+
+# Dados 9° ano EF - Matemática
+fundamental_matematica = base |> filter(serie_ano == "9º Ano EF", ds_comp == "MATEMÁTICA")
+
+
+#Dados 9° ano EF - Português
+fundamental_lp = base |> filter(serie_ano == "9º Ano EF", ds_comp == "LÍNGUA PORTUGUESA")
+
+#' 
+#' 
+#' # - Estatísticas Descritivas
+#' 
+## ----Gráfico média por ano, include = TRUE-----------------------------------------------------------------------
+# Agrupamento e cálculo da média, filtrando anos de 2011 até 2018
+df_media = ensino_medio_matematica |> 
+  mutate(ano_adesao = case_when(
+    ano_adesao == 0 ~ "Nunca aderiu",
+    ano_adesao > 2018 ~ "Aderiu após 2018",
+    TRUE ~ as.character(ano_adesao)
+  )) |> 
+  filter(ano >= 2011 & ano <= 2018) |>  # Filtrar os dados para os anos de 2011 até 2018
+  group_by(ano, ano_adesao) |> 
+  summarise(media_medprof = mean(medprof, na.rm = TRUE)) |> 
+  ungroup()
+
+# Criar o gráfico com ggplot2
+library(ggplot2)
+
+ggplot(df_media, aes(x = ano, y = media_medprof, color = ano_adesao, group = ano_adesao)) +
+  geom_line(size = 1.2) +  # Linhas para cada grupo de adesão
+  geom_vline(data = df_media |> filter(ano_adesao != "Nunca aderiu" & ano_adesao != "Aderiu após 2018"),
+             aes(xintercept = as.numeric(ano_adesao), color = ano_adesao),
+             linetype = "solid", size = 1.2) +  # Linhas verticais coloridas apenas para anos específicos de adesão
+  labs(title = "Média da medida de proficiência ao longo do tempo por ano de adesão",
+       x = "Ano", y = "Média da medida de proficiência", color = "Ano de adesão") +
+  theme(legend.position = "bottom") +
+  scale_x_continuous(limits = c(2011, 2018), breaks = seq(2011, 2018, by = 1))  # Limitar eixo x de 2011 até 2018 e mostrar todos os anos
+
+
+
+#' 
+## ----Gráfico adesão ao longo dos anos, include = TRUE------------------------------------------------------------
+# Agrupar por ano_adesao e calcular o somatório de observações em cada ano
+soma_ano_adesao <- escolaspei |> 
+  group_by(ano_adesao) |> 
+  summarise(soma_adesao = n()) |> 
+  arrange(ano_adesao)
+
+# Filtrar apenas os anos até 2018
+soma_ano_adesao <- soma_ano_adesao |> 
+  filter(ano_adesao <= 2018)
+
+# Calcular o somatório acumulado ao longo dos anos
+soma_ano_adesao <- soma_ano_adesao |> 
+  mutate(soma_acumulada = cumsum(soma_adesao))
+
+# Criar o gráfico com ggplot2
+library(ggplot2)
+
+ggplot(soma_ano_adesao, aes(x = ano_adesao, y = soma_acumulada)) +
+  geom_line(size = 1.2, color = "red3") +  # Linha para representar o somatório acumulado ao longo dos anos
+  geom_point(size = 3, color = "red3") +  # Pontos para destacar cada ano
+  labs(title = "Somatório Acumulado de Adesões por Ano de Adesão",
+       x = "Ano de Adesão", y = "Número Acumulado de Adesões") +
+  theme_minimal() +
+  scale_x_continuous(limits = c(min(soma_ano_adesao$ano_adesao), 2018), breaks = seq(min(soma_ano_adesao$ano_adesao), 2018, by = 1))  # Limitar eixo x até 2018 e mostrar todos os anos
+
+
+#' 
+#' 
+#' # - Estimação DiD
+#' 
+#' Estimação Did blabkabkakbakbkab
+#' 
+## ----diff in diff EM Matemática, include = FALSE-----------------------------------------------------------------
+# DiD
+
+did_matematicaEM <- att_gt(
+  yname = "medprof",
+  gname = "ano_adesao",
+  idname = "codesc",
+  tname = "ano",
+  xformla = ~1,
+  data = ensino_medio_matematica,
+  est_method = "reg",
+  control_group = "notyettreated",
+  panel = TRUE
+)
+
+
+summary(did_matematicaEM)
+
+ggdid(did_matematicaEM)
+
+esEMMAT = aggte(did_matematicaEM, type = "dynamic")
+
+ggdid(esEMMAT)
+
+#' 
+## ----diff in diff EM Português, include = FALSE------------------------------------------------------------------
+# DiD
+
+did_portuguesEM <- att_gt(
+  yname = "medprof",
+  gname = "ano_adesao",
+  idname = "codesc",
+  tname = "ano",
+  xformla = ~1,
+  data = ensino_medio_lp,
+  est_method = "reg",
+  control_group = "notyettreated",
+  panel = TRUE
+)
+
+
+summary(did_portuguesEM)
+
+ggdid(did_portuguesEM)
+
+esEMLP = aggte(did_portuguesEM, type = "dynamic")
+
+ggdid(esEMLP)
+
+#' 
+## ----diff in diff EF Matemática, include = FALSE-----------------------------------------------------------------
+# DiD
+
+did_matematicaEF <- att_gt(
+  yname = "medprof",
+  gname = "ano_adesao",
+  idname = "codesc",
+  tname = "ano",
+  xformla = ~1,
+  data = fundamental_matematica,
+  est_method = "reg",
+  control_group = "notyettreated",
+  panel = TRUE
+)
+
+
+summary(did_matematicaEF)
+
+ggdid(did_matematicaEF)
+
+esEFMAT = aggte(did_matematicaEF, type = "dynamic", na.rm = TRUE)
+
+ggdid(esEFMAT)
+
+#' 
+## ----diff in diff EF Português, include = FALSE------------------------------------------------------------------
+# DiD
+
+did_portuguesEF <- att_gt(
+  yname = "medprof",
+  gname = "ano_adesao",
+  idname = "codesc",
+  tname = "ano",
+  xformla = ~1,
+  data = fundamental_lp,
+  est_method = "reg",
+  control_group = "notyettreated",
+  panel = TRUE, 
+  )
+
+
+summary(did_portuguesEF)
+
+ggdid(did_portuguesEF)
+
+esEFLP = aggte(did_portuguesEF, type = "dynamic", na.rm = TRUE)
+
+ggdid(esEFLP)
+
+#' 
+#' 
+#' # - Normalizar notas para DiD
+#' 
+## ----manipulação EM matemática, include = FALSE------------------------------------------------------------------
+
+ensino_medio_matematica <- ensino_medio_matematica |> 
+  group_by(ano) |> 
+  mutate(
+    normalizado = (medprof - mean(medprof[integral_dummy == 0], na.rm = TRUE)) / 
+                  sd(medprof[integral_dummy == 0], na.rm = TRUE)) |> 
+  ungroup()
+
+
+normalizado_Mat_EM <- att_gt(
+  yname = "normalizado",
+  gname = "ano_adesao",
+  idname = "codesc",
+  tname = "ano",
+  xformla = ~1,
+  data = ensino_medio_matematica,
+  est_method = "reg",
+  control_group = "notyettreated",
+  panel = TRUE)
+
+
+summary(normalizado_Mat_EM)
+
+ggdid(normalizado_Mat_EM)
+
+norm_esEMMAT = aggte(normalizado_Mat_EM, type = "dynamic", na.rm = TRUE)
+
+ggdid(norm_esEMMAT)
+
+
+#' 
+## ----manipulação EM português, include = FALSE-------------------------------------------------------------------
+
+ensino_medio_lp <- ensino_medio_lp |> 
+  group_by(ano) |> 
+  mutate(
+    normalizado = (medprof - mean(medprof[integral_dummy == 0], na.rm = TRUE)) / 
+                  sd(medprof[integral_dummy == 0], na.rm = TRUE)) |> 
+  ungroup()
+
+
+normalizado_LP_EM <- att_gt(
+  yname = "normalizado",
+  gname = "ano_adesao",
+  idname = "codesc",
+  tname = "ano",
+  xformla = ~1,
+  data = ensino_medio_lp,
+  est_method = "reg",
+  control_group = "notyettreated",
+  panel = TRUE)
+
+summary(normalizado_LP_EM)
+
+ggdid(normalizado_LP_EM)
+
+norm_esEMPLP = aggte(normalizado_LP_EM, type = "dynamic", na.rm = TRUE)
+
+ggdid(norm_esEMPLP)
+
+
+#' 
+## ----manipulação fundamental português, include = FALSE----------------------------------------------------------
+
+fundamental_lp <- fundamental_lp |> 
+  group_by(ano) |> 
+  mutate(
+    normalizado = (medprof - mean(medprof[integral_dummy == 0], na.rm = TRUE)) / 
+                  sd(medprof[integral_dummy == 0], na.rm = TRUE)) |> 
+  ungroup()
+
+
+normalizado_LP_Fund <- att_gt(
+  yname = "normalizado",
+  gname = "ano_adesao",
+  idname = "codesc",
+  tname = "ano",
+  xformla = ~1,
+  data = fundamental_lp,
+  est_method = "reg",
+  control_group = "notyettreated",
+  panel = TRUE)
+
+summary(normalizado_LP_Fund)
+
+ggdid(normalizado_LP_Fund)
+
+norm_esFundLP = aggte(normalizado_LP_Fund, type = "dynamic", na.rm = TRUE)
+
+ggdid(norm_esFundLP)
+
+
+#' 
+## ----manipulação fundamental matemática, include = FALSE---------------------------------------------------------
+
+fundamental_matematica <- fundamental_matematica |> 
+  group_by(ano) |> 
+  mutate(
+    normalizado = (medprof - mean(medprof[integral_dummy == 0], na.rm = TRUE)) / 
+                  sd(medprof[integral_dummy == 0], na.rm = TRUE)) |> 
+  ungroup()
+
+normalizado_Mat_Fund <- att_gt(
+  yname = "normalizado",
+  gname = "ano_adesao",
+  idname = "codesc",
+  tname = "ano",
+  xformla = ~1,
+  data = fundamental_matematica,
+  est_method = "reg",
+  control_group = "notyettreated",
+  panel = TRUE)
+
+summary(normalizado_Mat_Fund)
+
+ggdid(normalizado_Mat_Fund)
+
+norm_esFundMat = aggte(normalizado_Mat_Fund, type = "dynamic", na.rm = TRUE)
+
+ggdid(norm_esFundMat)
+
+
+#' 
+#' 
+#' 
+#' # - Comparação Internacional com PISA
+#' 
+## ----Importando dados do PISA, include = TRUE--------------------------------------------------------------------
+# Países do G7 + 5 Maiores América 
+paises = c(
+  "CAN", "FRA", "DEU", "ITA", "JPN", "GBR", "USA", "BRA", "ARG", "CHL", "COL", "PER", "VEN", "ECU", "URY", "PRY", "BOL", "GUY", "SUR"
+  )
+
+pisaall = load_student("all") |> filter(country %in% paises)
+
+sulamerica <- c("BRA", "ARG", "CHL", "COL", "PER", "VEN", "ECU", "URY", "PRY", "BOL")
+
+pisa = pisaall |> filter(country %in% sulamerica)
+
+
+#' 
+## ----Gráfico da média de matemática por ano - Comparação com G7, include = TRUE----------------------------------
+# Filtrar dados dos países do G7 e Brasil
+g7 <- c("CAN", "FRA", "DEU", "ITA", "JPN", "GBR", "USA", "BRA")
+pisa_g7 <- pisaall |> filter(country %in% g7)
+
+# Calcular a média de notas de matemática por país e ano para o G7
+pisa_g7_mean <- pisa_g7 |>
+  group_by(country, year) |>
+  summarize(mean_math = mean(math, na.rm = TRUE), .groups = "drop")
+
+# Garantir que 'year' seja tratado como numérico
+pisa_g7_mean$year <- as.numeric(as.character(pisa_g7_mean$year))
+
+# Definir as cores para os países, garantindo que o Brasil permaneça azul
+cores_g7 <- c("BRA" = "green3", "CAN" = "red", "FRA" = "blue", "DEU" = "orange", 
+              "ITA" = "lightgreen", "JPN" = "brown", "GBR" = "pink", "USA" = "lightblue")
+
+# Gerar o gráfico com ggplot2 para o G7
+grafico_g7 <- ggplot(pisa_g7_mean, aes(x = year, y = mean_math, color = country, group = country)) +
+  geom_line(size = 1.5) +
+  scale_color_manual(values = cores_g7) +
+  labs(title = "Média de Notas de Matemática por País no PISA do G7 ao Longo dos Anos",
+       x = "Ano",
+       y = "Média da Nota de Matemática") +
+  theme_minimal()
+
+# Exibir o gráfico
+print(grafico_g7)
+
+# Salvar o gráfico usando ggsave
+ggsave("grafico_g7.png", plot = grafico_g7, width = 10, height = 6, dpi = 300)
+
+
+
+#' 
+## ----Gráfico da média de matemática por ano - Comparação com América do Sul, include = TRUE----------------------
+# Filtrar dados dos países da América do Sul
+# Filtrar dados dos países da América do Sul
+sulamerica <- c("BRA", "ARG", "CHL", "COL", "PER", "VEN", "ECU", "URY", "PRY", "BOL", "GUY", "SUR")
+pisa_sulamerica <- pisaall |> filter(country %in% sulamerica)
+
+# Calcular a média de notas de matemática por país e ano para a América do Sul
+pisa_sulamerica_mean <- pisa_sulamerica |>
+  group_by(country, year) |>
+  summarize(mean_math = mean(math, na.rm = TRUE), .groups = "drop")
+
+# Garantir que 'year' seja tratado como numérico
+pisa_sulamerica_mean$year <- as.numeric(as.character(pisa_sulamerica_mean$year))
+
+# Definir as cores para os países
+cores_sulamerica <- c("BRA" = "green3", "ARG" = "lightblue", "CHL" = "red", "COL" = "yellow", 
+                      "PER" = "darkred", "VEN" = "yellow2", "ECU" = "yellow4", "URY" = "blue4", 
+                      "PRY" = "red2", "BOL" = "green3", "GUY" = "darkgreen", "SUR" = "green4")
+
+# Gerar o gráfico com ggplot2 para a América do Sul
+grafico_sulamerica <- ggplot(pisa_sulamerica_mean, aes(x = year, y = mean_math, color = country, group = country)) +
+  geom_line(size = 1.5) +
+  scale_color_manual(values = cores_sulamerica) +
+  labs(title = "Média de Notas de Matemática por País no PISA na América do Sul ao Longo dos Anos",
+       x = "Ano",
+       y = "Média da Nota de Matemática") +
+  theme_minimal()
+
+# Exibir o gráfico
+print(grafico_sulamerica)
+
+# Salvar o gráfico usando ggsave
+ggsave("grafico_sulamerica.png", plot = grafico_sulamerica, width = 10, height = 6, dpi = 300)
+
+
+
