@@ -27,18 +27,24 @@ Este chunk define as configurações iniciais do ambiente de trabalho para a an�
 knitr::opts_chunk$set(echo = TRUE)
 Sys.setlocale("LC_CTYPE", "pt_BR.UTF-8")
 # Definição de WD
-setwd("C:/Andreas/Insper/Semestre 5/Microeconomia 4/TrabalhoFinal")
+#setwd("C:/Andreas/Insper/Semestre 5/Microeconomia 4/TrabalhoFinal")
 
 
 # Bibliotecas
 library(dplyr)
 library(plm) 
 library(tidyverse)
+library(ggplot2)
 library(stargazer) 
 library(readxl)
 library(purrr)
+library(viridisLite)
 library(did)
 library(learningtower)
+library(leaflet)
+library(mapview)
+library(webshot)
+
 ```
 
 ```{r dataset + manipulação de dados, include = FALSE}
@@ -125,7 +131,7 @@ fundamental_lp = base |> filter(serie_ano == "9º Ano EF", ds_comp == "LÍNGUA P
 
 # - Estatísticas Descritivas
 
-```{r Gráfico média por ano, include = TRUE}
+```{r Gráfico médias por anos de adesão, include = TRUE}
 # Agrupamento e cálculo da média, filtrando anos de 2011 até 2018
 df_media = ensino_medio_matematica |> 
   mutate(ano_adesao = case_when(
@@ -146,15 +152,47 @@ ggplot(df_media, aes(x = ano, y = media_medprof, color = ano_adesao, group = ano
   geom_vline(data = df_media |> filter(ano_adesao != "Nunca aderiu" & ano_adesao != "Aderiu após 2018"),
              aes(xintercept = as.numeric(ano_adesao), color = ano_adesao),
              linetype = "solid", size = 1.2) +  # Linhas verticais coloridas apenas para anos específicos de adesão
-  labs(title = "Média da medida de proficiência ao longo do tempo por ano de adesão",
+  labs(title = "Média do SARESP em Matemática no EM por ano de adesão",
        x = "Ano", y = "Média da medida de proficiência", color = "Ano de adesão") +
   theme(legend.position = "bottom") +
+  scale_x_continuous(limits = c(2011, 2018), breaks = seq(2011, 2018, by = 1))  # Limitar eixo x de 2011 até 2018 e mostrar todos os anos
+
+```
+
+```{r Apenas anos iniciais e finais, include = TRUE}
+# Agrupamento e cálculo da média, filtrando apenas as categorias desejadas
+df_media <- ensino_medio_matematica |> 
+  mutate(ano_adesao = case_when(
+    ano_adesao == 0 ~ "Nunca aderiu",
+    ano_adesao == 2012 ~ "2012",
+    ano_adesao == 2013 ~ "2013",
+    ano_adesao > 2018 ~ "Aderiu após 2018",
+    TRUE ~ NA_character_  # Define como NA para valores que não queremos incluir
+  )) |> 
+  filter(!is.na(ano_adesao)) |>  # Filtra para excluir os NA (anos indesejados)
+  filter(ano >= 2011 & ano <= 2018) |>  # Filtrar os dados para os anos de 2011 até 2018
+  group_by(ano, ano_adesao) |> 
+  summarise(media_medprof = mean(medprof, na.rm = TRUE)) |> 
+  ungroup()
+
+# Criar o gráfico com ggplot2
+library(ggplot2)
+
+ggplot(df_media, aes(x = ano, y = media_medprof, color = ano_adesao, group = ano_adesao)) +
+  geom_line(size = 2) +  # Linhas para cada grupo de adesão
+  geom_vline(data = df_media |> filter(ano_adesao %in% c("2012", "2013")),
+             aes(xintercept = as.numeric(ano_adesao), color = ano_adesao),
+             linetype = "solid", size = 1.2) +  # Linhas verticais para 2012 e 2013
+  labs(title = "Média do SARESP em Matemática no EM por ano de adesão",
+       x = "Ano", y = "Média da medida de proficiência", color = "Ano de adesão") +
+  theme(legend.position = "bottom") +
+    scale_color_viridis_d(option = "D") +  # Aplica a paleta viridis para variáveis categóricas
   scale_x_continuous(limits = c(2011, 2018), breaks = seq(2011, 2018, by = 1))  # Limitar eixo x de 2011 até 2018 e mostrar todos os anos
 
 
 ```
 
-```{r Gráfico adesão ao longo dos anos, include = TRUE}
+```{r Gráfico quantidade de adesão ao longo dos anos, include = TRUE}
 # Agrupar por ano_adesao e calcular o somatório de observações em cada ano
 soma_ano_adesao <- escolaspei |> 
   group_by(ano_adesao) |> 
@@ -179,6 +217,36 @@ ggplot(soma_ano_adesao, aes(x = ano_adesao, y = soma_acumulada)) +
        x = "Ano de Adesão", y = "Número Acumulado de Adesões") +
   theme_minimal() +
   scale_x_continuous(limits = c(min(soma_ano_adesao$ano_adesao), 2018), breaks = seq(min(soma_ano_adesao$ano_adesao), 2018, by = 1))  # Limitar eixo x até 2018 e mostrar todos os anos
+
+```
+
+```{r Gráfico georeferênciado, include = TRUE}
+# Criando dataframe do mapa
+
+georrenf = escolaspei |> 
+  filter(ano_adesao <= 2018) |> 
+  arrange(desc(ano_adesao)) |>
+  select(nomesc, ds_latitude, ds_longitude, ano_adesao)
+
+# Crie o mapa com leaflet
+map1 <- leaflet(data = georrenf) %>%
+  addProviderTiles(providers$OpenStreetMap) %>%
+  addCircleMarkers(
+    ~ds_longitude, ~ds_latitude,
+    color = ~ifelse(ano_adesao == 2012, "darkred", "red"),
+    radius = 2,
+    label = ~nomesc,
+    fillOpacity = 0.8,
+    opacity = 0.7
+  ) %>%
+  addLegend("bottomright", 
+            colors = c("darkred", "red"), 
+            labels = c("2012", "2018"), 
+            title = "Escolas Integrais em São Paulo")
+
+# Salvar o mapa como imagem
+mapshot(map1, file = "mapa_exportado.png") # Pode salvar como .png ou .jpeg
+
 
 ```
 
