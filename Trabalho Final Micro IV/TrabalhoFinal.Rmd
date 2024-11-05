@@ -27,7 +27,7 @@ Este chunk define as configurações iniciais do ambiente de trabalho para a an�
 knitr::opts_chunk$set(echo = TRUE)
 Sys.setlocale("LC_CTYPE", "pt_BR.UTF-8")
 # Definição de WD
-#setwd("C:/Andreas/Insper/Semestre 5/Microeconomia 4/TrabalhoFinal")
+setwd("C:/Andreas/Insper/Semestre 5/Microeconomia 4/TrabalhoFinal")
 
 
 # Bibliotecas
