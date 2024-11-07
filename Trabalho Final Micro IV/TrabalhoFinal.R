@@ -20,24 +20,19 @@
 #' ---
 #' # - WD, Setup & Data
 #' 
-#' Este chunk define as configurações iniciais do ambiente de trabalho para a análise dos dados. Primeiro, o diretório de trabalho é definido para o caminho específico onde os arquivos estão localizados. Em seguida, as bibliotecas necessárias são carregadas, que são fundamentais para a manipulação dos dados, análise de regressão e geração de relatórios. A base de dados XXXXXXXXXXXXXXxXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXx    
+#' Esta seção realiza a configuração inicial do ambiente de trabalho para a análise de dados. Ele começa ajustando as opções de chunk para exibir o código no relatório final e define o local específico da máquina onde os arquivos de dados estão armazenados (com a função setwd). Em seguida, o chunk carrega as bibliotecas essenciais, que são fundamentais para diferentes etapas do projeto. O pacote dplyr e tidyverse são usados para manipulação de dados, ggplot2 para visualização. Além disso, pacotes como readxl facilitam a leitura de arquivos Excel, enquanto leaflet e mapview são usados para criação de mapas interativos. Por fim, configurações locais são ajustadas para garantir compatibilidade com caracteres em português. Este chunk é essencial para garantir que todo o ambiente e as ferramentas estejam corretamente configurados para as análises subsequentes.
 #' 
-#' 
-## ----setup, include=FALSE-----------------------------------------------------------------
+## ----Setup inicial, include=FALSE---------------------------------------------------------------
 knitr::opts_chunk$set(echo = TRUE)
 Sys.setlocale("LC_CTYPE", "pt_BR.UTF-8")
 # Definição de WD
-setwd("C:/Andreas/Insper/Semestre 5/Microeconomia 4/TrabalhoFinal")
+#setwd("C:/Andreas/Insper/Semestre 5/Microeconomia 4/TrabalhoFinal")
 
-
-knitr::purl("TrabalhoFinal.Rmd", documentation = 2)
 
 # Bibliotecas
 library(dplyr)
-library(plm) 
 library(tidyverse)
 library(ggplot2)
-library(stargazer) 
 library(readxl)
 library(purrr)
 library(viridisLite)
@@ -48,7 +43,18 @@ library(mapview)
 library(webshot)
 
 #' 
-## ----dataset + manipulação de dados, include = FALSE--------------------------------------
+#' Este chunk realiza a importação e pré-processamento inicial dos dados do SARESP (Sistema de Avaliação de Rendimento Escolar do Estado de São Paulo) para os anos de 2011 a 2018. Cada conjunto de dados anual é lido a partir de arquivos Excel utilizando a função read_excel do pacote readxl. A seguir, as seguintes etapas de manipulação são aplicadas:
+#' 
+#' 1. Renomeação de Colunas: As colunas de cada dataset são renomeadas para letras minúsculas usando rename_with(tolower), garantindo consistência nos nomes das variáveis.
+#' 
+#' 2. Adição de Ano de Referência: Uma nova coluna ano é criada em cada dataset para identificar o ano correspondente, facilitando a análise temporal.
+#' 
+#' 3. Conversão da Coluna medprof: A variável medprof, que contém a média do desempenho dos professores, é convertida para formato numérico, substituindo vírgulas por pontos (caso as notas estejam em formato decimal europeu) usando gsub e a função as.numeric.
+#' 
+#' Esses passos garantem que os dados sejam padronizados e prontos para integrações e análises futuras. O chunk prepara oito dataframes individuais para serem combinados e manipulados em etapas posteriores.
+#' 
+#' 
+## ----Leitura e Manipulação Inicial de Dados, include = FALSE------------------------------------
 # Ler bases
 saresp2011 = read_excel("SARESP2011.xlsx") |> rename_with(tolower) |> mutate(ano = 2011, medprof = as.numeric(gsub(",", ".", medprof))) 
 
@@ -67,8 +73,36 @@ saresp2017 = read_excel("SARESP2017.xlsx") |> rename_with(tolower) |> mutate(ano
 saresp2018 = read_excel("SARESP2018.xlsx") |> rename_with(tolower) |> mutate(ano = 2018, medprof = as.numeric(gsub(",", ".", medprof)))
 
 #' 
+#' Este chunk realiza a integração e a preparação dos dados do SARESP e das escolas de período integral (PEI), preparando os dataframes para análises específicas. A seguir, esse chunk realiza em cada etapa:
 #' 
-## ----manipular bases, include = FALSE-----------------------------------------------------
+#' 1. União dos Dados do SARESP: Os datasets anuais de 2011 a 2018 são combinados em um único dataframe chamado base utilizando rbind, permitindo uma análise consolidada ao longo do tempo.
+#' 
+#' 2. Importação da Base de Escolas PEI: A base que contém informações sobre a adesão das escolas ao programa de tempo integral (PEI) é importada e padronizada com nomes de colunas em minúsculas usando rename_with.
+#' 
+#' 3. Criação da Variável Dummy para Escolas PEI: É criada a variável integral_dummy, que indica se uma escola participava do programa PEI no ano correspondente. A variável é definida como 1 se o ano de adesão da escola ao PEI for menor ou igual ao ano do registro, e 0 caso contrário ou se a escola não for PEI.
+#' 
+#' 4. Adição do Ano de Adesão: A coluna ano_adesao é incorporada à base principal, associando o ano de adesão de cada escola ao programa PEI.
+#' 
+#' 5. Filtragem de Escolas Estaduais: São mantidas apenas as escolas da rede estadual (nomedepbol == "Rede Estadual"), pois o programa PEI se aplica apenas a essas instituições.
+#' 
+#' 6. Filtragem de Registros Gerais: Apenas os registros com o valor "GERAL" na variável periodo são mantidos, focando nos dados consolidados.
+#' 
+#' 7. Remoção de Colunas Irrelevantes: São descartadas colunas que não serão utilizadas na análise, como depadm, depbol, nomesc, cod_per, periodo e co_comp.
+#' 
+#' 8. Tratamento de Valores NA em ano_adesao: Valores ausentes na variável ano_adesao são substituídos por 0, indicando que a escola não participou do programa.
+#' 
+#' 9. Remoção de Registros com NA em medprof: Observações sem valores na variável medprof são removidas usando drop_na.
+#' 
+#' 10. Criação de Subconjuntos de Dados:
+#' 
+#' 10.1. Ensino Médio - Matemática: Filtra os dados para a 3ª série do ensino médio na disciplina de Matemática.
+#' 10.2. Ensino Médio - Português: Filtra os dados para a 3ª série do ensino médio na disciplina de Língua Portuguesa.
+#' 10.3. 9º Ano EF - Matemática: Filtra os dados para o 9º ano do ensino fundamental na disciplina de Matemática.
+#' 10.4. 9º Ano EF - Português: Filtra os dados para o 9º ano do ensino fundamental na disciplina de Língua Portuguesa.
+#' 
+#' Essas etapas garantem uma base consolidada e estruturada para análises específicas, permitindo comparações entre escolas participantes e não participantes do programa PEI, além de explorar resultados em diferentes níveis e disciplinas de ensino.
+#' 
+## ----manipular bases, include = TRUE------------------------------------------------------------
 # Unir em um único dataframe
 base = rbind(saresp2011, saresp2012, saresp2013, saresp2014, saresp2015, saresp2016, saresp2017, saresp2018)
 
@@ -132,7 +166,11 @@ fundamental_lp = base |> filter(serie_ano == "9º Ano EF", ds_comp == "LÍNGUA P
 #' 
 #' # - Estatísticas Descritivas
 #' 
-## ----Gráfico médias por anos de adesão, include = FALSE-----------------------------------
+#' Esta seção estabelece a base para a análise descritiva dos dados, fornecendo uma visão geral inicial do desempenho médio das escolas participantes e não participantes do programa PEI. Antes de explorar visualizações específicas, o chunk prepara os dados e apresenta tabelas resumidas, que incluem médias gerais e desvios padrão da proficiência em matemática para diferentes grupos de adesão. Essas estatísticas fornecem um ponto de partida para compreender as tendências gerais e contextualizam os gráficos detalhados que se seguem. Além disso, este passo ajuda a validar a integridade dos dados e identificar padrões preliminares relevantes para as análises subsequentes.
+#' 
+#' Este chunk realiza a análise descritiva das médias de proficiência (medprof) de matemática para o ensino médio, segmentadas pelo ano de adesão das escolas ao programa PEI. Ele utiliza ggplot2 para criar um gráfico de linhas, destacando as diferenças de desempenho entre escolas que aderiram em diferentes anos ou nunca participaram. Linhas verticais são adicionadas para marcar os anos de adesão. Por fim, o gráfico é salvo como uma imagem PNG com ggsave.
+#' 
+## ----Gráfico médias por anos de adesão, include = TRUE------------------------------------------
 # Agrupamento e cálculo da média, filtrando anos de 2011 até 2018
 df_media = ensino_medio_matematica |> 
   mutate(ano_adesao = case_when(
@@ -145,10 +183,7 @@ df_media = ensino_medio_matematica |>
   summarise(media_medprof = mean(medprof, na.rm = TRUE)) |> 
   ungroup()
 
-# Criar o gráfico com ggplot2
-library(ggplot2)
-
-ggplot(df_media, aes(x = ano, y = media_medprof, color = ano_adesao, group = ano_adesao)) +
+grafico_medias = ggplot(df_media, aes(x = ano, y = media_medprof, color = ano_adesao, group = ano_adesao)) +
   geom_line(size = 1.2) +  # Linhas para cada grupo de adesão
   geom_vline(data = df_media |> filter(ano_adesao != "Nunca aderiu" & ano_adesao != "Aderiu após 2018"),
              aes(xintercept = as.numeric(ano_adesao), color = ano_adesao),
@@ -158,9 +193,17 @@ ggplot(df_media, aes(x = ano, y = media_medprof, color = ano_adesao, group = ano
   theme(legend.position = "bottom") +
   scale_x_continuous(limits = c(2011, 2018), breaks = seq(2011, 2018, by = 1))  # Limitar eixo x de 2011 até 2018 e mostrar todos os anos
 
+# Exibir o gráfico
+print(grafico_medias)
+
+# Salvar o gráfico usando ggsave
+ggsave("grafico_medias.png", plot = grafico_medias, width = 10, height = 6, dpi = 350)
+
 
 #' 
-## ----Apenas anos iniciais e finais 2012 2013, include = FALSE-----------------------------
+#' Neste chunk, são analisadas as escolas que aderiram nos anos de 2012 e 2013. Utilizando a mesma abordagem do gráfico anterior, ele filtra apenas essas categorias e exibe suas tendências de proficiência ao longo dos anos de 2011 a 2018. A paleta de cores viridis é usada para melhorar a diferenciação visual. O gráfico também é salvo em formato PNG.
+#' 
+## ----Apenas anos iniciais e finais 2012 2013, include = TRUE------------------------------------
 # Agrupamento e cálculo da média, filtrando apenas as categorias desejadas
 df_media <- ensino_medio_matematica |> 
   mutate(ano_adesao = case_when(
@@ -179,7 +222,7 @@ df_media <- ensino_medio_matematica |>
 # Criar o gráfico com ggplot2
 library(ggplot2)
 
-ggplot(df_media, aes(x = ano, y = media_medprof, color = ano_adesao, group = ano_adesao)) +
+grafico_tendencias = ggplot(df_media, aes(x = ano, y = media_medprof, color = ano_adesao, group = ano_adesao)) +
   geom_line(size = 2) +  # Linhas para cada grupo de adesão
   geom_vline(data = df_media |> filter(ano_adesao %in% c("2012", "2013")),
              aes(xintercept = as.numeric(ano_adesao), color = ano_adesao),
@@ -190,10 +233,19 @@ ggplot(df_media, aes(x = ano, y = media_medprof, color = ano_adesao, group = ano
     scale_color_viridis_d(option = "D") +  # Aplica a paleta viridis para variáveis categóricas
   scale_x_continuous(limits = c(2011, 2018), breaks = seq(2011, 2018, by = 1))  # Limitar eixo x de 2011 até 2018 e mostrar todos os anos
 
+# Exibir o gráfico
+print(grafico_tendencias)
+
+# Salvar o gráfico usando ggsave
+ggsave("grafico_tendencias.png", plot = grafico_tendencias, width = 10, height = 6, dpi = 350)
+
+
 
 
 #' 
-## ----Apenas anos iniciais e finais 2014 2015, include = FALSE-----------------------------
+#' Semelhante ao chunk anterior, este foca nas escolas que aderiram em 2014 e 2015. O mesmo processo de filtragem e construção de gráficos é seguido, destacando o impacto temporal de diferentes anos de adesão. O gráfico final é salvo com ggsave.
+#' 
+## ----Apenas anos iniciais e finais 2014 2015, include = TRUE------------------------------------
 # Agrupamento e cálculo da média, filtrando apenas as categorias desejadas
 df_media <- ensino_medio_matematica |> 
   mutate(ano_adesao = case_when(
@@ -209,7 +261,7 @@ df_media <- ensino_medio_matematica |>
   summarise(media_medprof = mean(medprof, na.rm = TRUE)) |> 
   ungroup()
 
-ggplot(df_media, aes(x = ano, y = media_medprof, color = ano_adesao, group = ano_adesao)) +
+grafico_tendencias2 = ggplot(df_media, aes(x = ano, y = media_medprof, color = ano_adesao, group = ano_adesao)) +
   geom_line(size = 2) +  # Linhas para cada grupo de adesão
   geom_vline(data = df_media |> filter(ano_adesao %in% c("2014", "2015")),
              aes(xintercept = as.numeric(ano_adesao), color = ano_adesao),
@@ -220,10 +272,18 @@ ggplot(df_media, aes(x = ano, y = media_medprof, color = ano_adesao, group = ano
   scale_color_viridis_d(option = "D") +  # Aplica a paleta viridis para variáveis categóricas
   scale_x_continuous(limits = c(2011, 2018), breaks = seq(2011, 2018, by = 1))  # Limitar eixo x de 2011 até 2018 e mostrar todos os anos
 
+# Exibir o gráfico
+print(grafico_tendencias2)
+
+# Salvar o gráfico usando ggsave
+ggsave("grafico_tendencias2.png", plot = grafico_tendencias2, width = 10, height = 6, dpi = 350)
+
+
 
 #' 
+#' Este chunk calcula o número acumulado de adesões ao programa PEI até 2018. Os dados são agrupados e somados anualmente. O gráfico resultante mostra o somatório acumulado, utilizando linhas e pontos para destacar cada ano. O gráfico é exportado como PNG.
 #' 
-## ----Gráfico quantidade de adesão ao longo dos anos, include = TRUE-----------------------
+## ----Gráfico quantidade de adesão ao longo dos anos, include = TRUE-----------------------------
 # Agrupar por ano_adesao e calcular o somatório de observações em cada ano
 soma_ano_adesao <- escolaspei |> 
   group_by(ano_adesao) |> 
@@ -238,10 +298,8 @@ soma_ano_adesao <- soma_ano_adesao |>
 soma_ano_adesao <- soma_ano_adesao |> 
   mutate(soma_acumulada = cumsum(soma_adesao))
 
-# Criar o gráfico com ggplot2
-library(ggplot2)
 
-ggplot(soma_ano_adesao, aes(x = ano_adesao, y = soma_acumulada)) +
+grafico_adesao = ggplot(soma_ano_adesao, aes(x = ano_adesao, y = soma_acumulada)) +
   geom_line(size = 1.2, color = "red3") +  # Linha para representar o somatório acumulado ao longo dos anos
   geom_point(size = 3, color = "red3") +  # Pontos para destacar cada ano
   labs(title = "Somatório Acumulado de Adesões por Ano de Adesão",
@@ -249,9 +307,18 @@ ggplot(soma_ano_adesao, aes(x = ano_adesao, y = soma_acumulada)) +
   theme_minimal() +
   scale_x_continuous(limits = c(min(soma_ano_adesao$ano_adesao), 2018), breaks = seq(min(soma_ano_adesao$ano_adesao), 2018, by = 1))  # Limitar eixo x até 2018 e mostrar todos os anos
 
+# Exibir o gráfico
+print(grafico_adesao)
+
+# Salvar o gráfico usando ggsave
+ggsave("grafico_adesao.png", plot = grafico_adesao, width = 10, height = 6, dpi = 350)
+
+
 
 #' 
-## ----Gráfico georeferênciado, include = TRUE----------------------------------------------
+#' Este chunk cria um mapa interativo usando o leaflet para exibir a localização das escolas que aderiram ao PEI até 2018. Ele utiliza coordenadas de latitude e longitude para posicionar marcadores no mapa, com cores distintas para anos específicos de adesão. Um arquivo de imagem do mapa é gerado usando mapshot.
+#' 
+## ----Gráfico georeferênciado, include = TRUE----------------------------------------------------
 # Criando dataframe do mapa
 georrenf = escolaspei |> 
   filter(ano_adesao <= 2018) |> 
@@ -277,16 +344,18 @@ map1 <- leaflet(data = georrenf) |>
 
 # Salvar o mapa como imagem
 mapshot(map1,
-        file = "mapa_exportado.png")
+        file = "mapa_escolas_no_estado.png")
 
 
 #' 
 #' 
 #' # - Estimação DiD
 #' 
-#' Estimação Did blabkabkakbakbkab
+#' Este conjunto de chunks aplica a metodologia de Diferenças-em-Diferenças (DiD) para avaliar o impacto da adesão ao programa de escolas de período integral (PEI) sobre o desempenho acadêmico em matemática e língua portuguesa, tanto no ensino médio quanto no ensino fundamental. A análise é conduzida com o pacote did, utilizando modelos baseados na abordagem de Callaway e Sant’Anna para tratamentos heterogêneos.
 #' 
-## ----diff in diff EM Matemática, include = FALSE------------------------------------------
+#' No primeiro chunk, o foco está no ensino médio, avaliando o desempenho em matemática. A função att_gt é utilizada para calcular os efeitos médios do tratamento (ATT) considerando o ano de adesão de cada escola (ano_adesao) como o momento do tratamento. O modelo considera um grupo de controle formado por escolas que ainda não aderiram ao programa no período analisado. Em seguida, o efeito dinâmico do programa é estimado por meio da função aggte, que permite observar como o impacto do PEI evolui ao longo do tempo após a adesão. Os gráficos gerados com ggdid fornecem uma visualização clara dos efeitos estimados e são salvos como arquivos PNG para futura referência.
+#' 
+## ----diff in diff EM Matemática, include = TRUE-------------------------------------------------
 # DiD
 
 did_matematicaEM <- att_gt(
@@ -306,12 +375,20 @@ summary(did_matematicaEM)
 
 ggdid(did_matematicaEM)
 
-esEMMAT = aggte(did_matematicaEM, type = "dynamic")
+esEMMAT = aggte(did_matematicaEM, type = "dynamic", na.rm = TRUE)
 
 ggdid(esEMMAT)
 
+did_EM_mat = ggdid(esEMMAT)
+
+# Salvar o gráfico usando ggsave
+ggsave("did_EM_mat.png", plot = did_EM_mat, width = 10, height = 6, dpi = 350)
+
+
 #' 
-## ----diff in diff EM Português, include = FALSE-------------------------------------------
+#' O segundo chunk repete a mesma metodologia para o desempenho em língua portuguesa no ensino médio. Novamente, são geradas estimativas dos efeitos médios e dinâmicos do programa, visualizadas por meio de gráficos que ilustram o impacto temporal do tratamento.
+#' 
+## ----diff in diff EM Português, include = TRUE--------------------------------------------------
 # DiD
 
 did_portuguesEM <- att_gt(
@@ -331,12 +408,20 @@ summary(did_portuguesEM)
 
 ggdid(did_portuguesEM)
 
-esEMLP = aggte(did_portuguesEM, type = "dynamic")
+esEMLP = aggte(did_portuguesEM, type = "dynamic", na.rm = TRUE)
 
 ggdid(esEMLP)
 
+did_EM_LP = ggdid(esEMLP)
+
+# Salvar o gráfico usando ggsave
+ggsave("did_EM_LP.png", plot = did_EM_LP, width = 10, height = 6, dpi = 350)
+
+
 #' 
-## ----diff in diff EF Matemática, include = FALSE------------------------------------------
+#' No terceiro chunk, a análise é estendida para o 9º ano do ensino fundamental, avaliando o desempenho em matemática. As estimativas seguem a mesma lógica dos chunks anteriores. Isso assegura que as estimativas não sejam influenciadas por inconsistências nos dados.
+#' 
+## ----diff in diff EF Matemática, include = TRUE-------------------------------------------------
 # DiD
 
 did_matematicaEF <- att_gt(
@@ -360,8 +445,13 @@ esEFMAT = aggte(did_matematicaEF, type = "dynamic", na.rm = TRUE)
 
 ggdid(esEFMAT)
 
+did_EF_MAT = ggdid(esEFMAT)
+
+# Salvar o gráfico usando ggsave
+ggsave("did_EF_MAT.png", plot = did_EF_MAT, width = 10, height = 6, dpi = 350)
+
 #' 
-## ----diff in diff EF Português, include = FALSE-------------------------------------------
+## ----diff in diff EF Português, include = TRUE--------------------------------------------------
 # DiD
 
 did_portuguesEF <- att_gt(
@@ -385,11 +475,23 @@ esEFLP = aggte(did_portuguesEF, type = "dynamic", na.rm = TRUE)
 
 ggdid(esEFLP)
 
+did_EF_LP = ggdid(esEFLP)
+
+# Salvar o gráfico usando ggsave
+ggsave("did_EF_LP.png", plot = did_EF_LP, width = 10, height = 6, dpi = 350)
+
+#' 
+#' Finalmente, o último chunk avalia o impacto do PEI no desempenho em língua portuguesa no 9º ano do ensino fundamental. A estrutura segue as mesmas etapas anteriores, com estimativas médias e dinâmicas visualizadas por meio de gráficos. Essa abordagem permite analisar como os efeitos do programa variam entre diferentes níveis de ensino e disciplinas, oferecendo uma visão abrangente sobre a eficácia do PEI ao longo do tempo. Os gráficos finais são exportados, garantindo uma apresentação clara e organizada dos resultados.
+#' 
 #' 
 #' 
 #' # - Normalizar notas para DiD
 #' 
-## ----manipulação EM matemática, include = FALSE-------------------------------------------
+#' Este conjunto de chunks realiza uma análise de Diferenças-em-Diferenças (DiD) após normalizar os dados de proficiência (medprof) em diferentes disciplinas e níveis de ensino. A normalização permite ajustar as medidas de proficiência para comparabilidade entre os grupos de tratamento e controle, garantindo que as diferenças observadas sejam robustas e controladas por variações naturais nos dados.
+#' 
+#' No primeiro chunk, o desempenho em matemática do ensino médio é normalizado dentro de cada ano, utilizando a média e o desvio padrão das escolas que ainda não aderiram ao programa PEI (integral_dummy == 0). Em seguida, a função att_gt estima os efeitos médios do tratamento (ATT) considerando o ano de adesão (ano_adesao) e o modelo de controle para escolas ainda não tratadas. A função aggte é utilizada para calcular os efeitos dinâmicos, visualizados com ggdid. O gráfico resultante é salvo para referência.
+#' 
+## ----manipulação EM matemática, include = TRUE--------------------------------------------------
 
 ensino_medio_matematica <- ensino_medio_matematica |> 
   group_by(ano) |> 
@@ -419,9 +521,16 @@ norm_esEMMAT = aggte(normalizado_Mat_EM, type = "dynamic", na.rm = TRUE)
 
 ggdid(norm_esEMMAT)
 
+normdid_EM_mat = ggdid(norm_esEMMAT)
+
+# Salvar o gráfico usando ggsave
+ggsave("normdid_EM_mat.png", plot = normdid_EM_mat, width = 10, height = 6, dpi = 350)
+
 
 #' 
-## ----manipulação EM português, include = FALSE--------------------------------------------
+#' O segundo chunk repete o procedimento para língua portuguesa no ensino médio. A normalização é feita da mesma forma, seguida das estimativas de ATT e efeitos dinâmicos. Os gráficos são gerados e exportados para facilitar a análise comparativa.
+#' 
+## ----manipulação EM português, include = TRUE---------------------------------------------------
 
 ensino_medio_lp <- ensino_medio_lp |> 
   group_by(ano) |> 
@@ -450,9 +559,19 @@ norm_esEMPLP = aggte(normalizado_LP_EM, type = "dynamic", na.rm = TRUE)
 
 ggdid(norm_esEMPLP)
 
+normdid_EM_LP = ggdid(norm_esEMPLP)
+
+# Salvar o gráfico usando ggsave
+ggsave("normdid_EM_LP.png", plot = normdid_EM_LP, width = 10, height = 6, dpi = 350)
+
+
 
 #' 
-## ----manipulação fundamental português, include = FALSE-----------------------------------
+#' No terceiro e quarto chunks, o foco é o ensino fundamental, analisando matemática e língua portuguesa, respectivamente. Em ambos os casos, o desempenho dos alunos é normalizado por ano e as estimativas DiD são calculadas usando a mesma metodologia dos chunks anteriores. O uso consistente de normalização assegura que os efeitos estimados sejam diretamente comparáveis entre diferentes níveis de ensino e disciplinas.
+#' 
+#' Os gráficos finais para cada análise são gerados e exportados, oferecendo uma visualização clara dos impactos dinâmicos do programa PEI em termos de desvio padrão das notas normalizadas. Isso permite uma análise detalhada de como a adesão ao programa afeta o desempenho ao longo do tempo.
+#' 
+## ----manipulação fundamental português, include = TRUE------------------------------------------
 
 fundamental_lp <- fundamental_lp |> 
   group_by(ano) |> 
@@ -481,9 +600,15 @@ norm_esFundLP = aggte(normalizado_LP_Fund, type = "dynamic", na.rm = TRUE)
 
 ggdid(norm_esFundLP)
 
+normdid_EF_LP = ggdid(norm_esFundLP)
+
+# Salvar o gráfico usando ggsave
+ggsave("normdid_EF_LP.png", plot = normdid_EF_LP, width = 10, height = 6, dpi = 350)
+
+
 
 #' 
-## ----manipulação fundamental matemática, include = FALSE----------------------------------
+## ----manipulação fundamental matemática, include = TRUE-----------------------------------------
 
 fundamental_matematica <- fundamental_matematica |> 
   group_by(ano) |> 
@@ -511,12 +636,22 @@ norm_esFundMat = aggte(normalizado_Mat_Fund, type = "dynamic", na.rm = TRUE)
 
 ggdid(norm_esFundMat)
 
+normdid_EF_mat = ggdid(norm_esFundMat)
+
+# Salvar o gráfico usando ggsave
+ggsave("normdid_EF_mat.png", plot = normdid_EF_mat, width = 10, height = 6, dpi = 350)
+
+
 
 #' 
 #' 
-#' # - Probabilidade de estar Avançado
+#' # - Probabilidade de alcançar nível básico
 #' 
-## ----Probabilidade e novo DiD, include = TRUE---------------------------------------------
+#' Esta seção aplica a metodologia de Diferenças-em-Diferenças (DiD) para estimar o impacto da adesão ao programa de ensino integral (PEI) na probabilidade de que alunos atinjam o nível básico de proficiência em matemática e língua portuguesa, tanto no ensino médio quanto no ensino fundamental. A análise cria uma variável binária (basico) que identifica se um aluno está em nível básico de proficiência (com valor de 1 se a proficiência estiver acima de 275 e 0 caso contrário). Para cada conjunto de dados, a função att_gt é utilizada para estimar o efeito médio do tratamento (ATT) e, em seguida, aggte calcula os efeitos dinâmicos ao longo do tempo. Os gráficos gerados com ggdid mostram como a probabilidade de alcançar o nível básico evolui para alunos em escolas participantes do PEI. Cada gráfico é salvo como PNG para análise posterior.
+#' 
+#' Este chunk analisa a probabilidade de que alunos do ensino médio atinjam o nível básico de proficiência em matemática. A variável basico é criada para indicar se a proficiência do aluno em matemática é maior que 275. Em seguida, att_gt calcula os efeitos médios do tratamento, enquanto aggte permite observar os efeitos dinâmicos ao longo do tempo, mostrando como o impacto do programa evolui após a adesão. O gráfico gerado é salvo como prob_estar_basico.png.
+#' 
+## ----Probabilidade de alcançar nível Básico - EM Matemática, include = TRUE---------------------
 ensino_medio_matematica = ensino_medio_matematica |> 
   mutate(basico = ifelse(medprof > 275, 1, 0))
 
@@ -539,11 +674,118 @@ didgraficobasico = aggte(didbasico, type = "dynamic", na.rm = TRUE)
 
 ggdid(didgraficobasico)
 
+prob_estar_basico = ggdid(didgraficobasico)
 
+# Salvar o gráfico usando ggsave
+ggsave("prob_estar_basico.png", plot = prob_estar_basico, width = 10, height = 6, dpi = 350)
+
+#' 
+#' Neste chunk, a análise é replicada para língua portuguesa no ensino médio. A variável basico é novamente criada com o mesmo critério de proficiência. A função att_gt estima o efeito do programa PEI sobre a probabilidade de atingir o nível básico, enquanto aggte calcula os efeitos dinâmicos, permitindo observar a evolução temporal. O gráfico resultante é salvo como prob_estar_basico_lp.png.
+#' 
+## ----Probabilidade de alcançar nível Básico - EM Português, include = TRUE----------------------
+ensino_medio_lp = ensino_medio_lp |> 
+  mutate(basico = ifelse(medprof > 275, 1, 0))
+
+didbasico_lp <- att_gt(
+  yname = "basico",
+  gname = "ano_adesao",
+  idname = "codesc",
+  tname = "ano",
+  xformla = ~1,
+  data = ensino_medio_lp,
+  est_method = "reg",
+  control_group = "notyettreated",
+  panel = TRUE)
+
+summary(didbasico_lp)
+
+ggdid(didbasico_lp)
+
+didgraficobasico_lp = aggte(didbasico_lp, type = "dynamic", na.rm = TRUE)
+
+ggdid(didgraficobasico_lp)
+
+prob_estar_basico_lp = ggdid(didgraficobasico_lp)
+
+# Salvar o gráfico usando ggsave
+ggsave("prob_estar_basico_lp.png", plot = prob_estar_basico_lp, width = 10, height = 6, dpi = 350)
+
+
+#' 
+#' Este chunk avalia a probabilidade de que alunos do 9º ano do ensino fundamental alcancem o nível básico em matemática. A variável binária basico indica se a nota está acima do limiar de 275. O modelo de Diferenças-em-Diferenças calcula os efeitos médios e dinâmicos do tratamento, mostrando como o impacto do PEI muda ao longo do tempo para os alunos no ensino fundamental. O gráfico é salvo como prob_estar_basico_efmat.png.
+#' 
+## ----Probabilidade de alcançar nível Básico - EF Matemática, include = TRUE---------------------
+fundamental_matematica = fundamental_matematica |> 
+  mutate(basico = ifelse(medprof > 275, 1, 0))
+
+didbasico_efmat <- att_gt(
+  yname = "basico",
+  gname = "ano_adesao",
+  idname = "codesc",
+  tname = "ano",
+  xformla = ~1,
+  data = fundamental_matematica,
+  est_method = "reg",
+  control_group = "notyettreated",
+  panel = TRUE)
+
+summary(didbasico_efmat)
+
+ggdid(didbasico_efmat)
+
+didgraficobasico_efmat = aggte(didbasico_efmat, type = "dynamic", na.rm = TRUE)
+
+ggdid(didgraficobasico_efmat)
+
+prob_estar_basico_efmat = ggdid(didgraficobasico_efmat)
+
+# Salvar o gráfico usando ggsave
+ggsave("prob_estar_basico_efmat.png", plot = prob_estar_basico_efmat, width = 10, height = 6, dpi = 350)
+
+
+#' 
+#' Neste último chunk, a probabilidade de alcançar o nível básico é analisada para língua portuguesa no 9º ano do ensino fundamental. A variável basico é criada com o mesmo limiar de 275 para indicar o nível básico de proficiência. As estimativas dos efeitos médios e dinâmicos são obtidas com att_gt e aggte, respectivamente. O gráfico gerado mostra como a probabilidade de estar em nível básico evolui ao longo do tempo e é salvo como prob_estar_basico_eflp.png.
+#' 
+## ----Probabilidade de alcançar nível Básico - EF Português, include = TRUE----------------------
+fundamental_lp = fundamental_lp |> 
+  mutate(basico = ifelse(medprof > 275, 1, 0))
+
+didbasico_eflp <- att_gt(
+  yname = "basico",
+  gname = "ano_adesao",
+  idname = "codesc",
+  tname = "ano",
+  xformla = ~1,
+  data = fundamental_lp,
+  est_method = "reg",
+  control_group = "notyettreated",
+  panel = TRUE)
+
+summary(didbasico_eflp)
+
+ggdid(didbasico_eflp)
+
+didgraficobasico_eflp = aggte(didbasico_eflp, type = "dynamic", na.rm = TRUE)
+
+ggdid(didgraficobasico_eflp)
+
+prob_estar_basico_eflp = ggdid(didgraficobasico_eflp)
+
+# Salvar o gráfico usando ggsave
+ggsave("prob_estar_basico_eflp.png", plot = prob_estar_basico_eflp, width = 10, height = 6, dpi = 350)
+
+
+#' 
 #' 
 #' # - Comparação Internacional com PISA
 #' 
-## ----Importando dados do PISA, include = TRUE---------------------------------------------
+#' Este conjunto de chunks realiza uma análise comparativa de desempenho acadêmico em matemática entre países do G7 e da América do Sul, utilizando dados do PISA (Programa Internacional de Avaliação de Alunos). A análise foca em como as médias de notas de matemática evoluem ao longo dos anos, permitindo uma comparação do Brasil com nações economicamente desenvolvidas e vizinhos sul-americanos.
+#' 
+#' Primeiramente, os dados são importados com foco em dois grupos de países: os países do G7 e as maiores economias da América do Sul. A função load_student("all") carrega os dados do PISA, que são então filtrados para manter apenas as observações dos países de interesse.
+#' 
+#' No primeiro chunk de visualização, os dados dos países do G7 (incluindo o Brasil) são filtrados. A média de notas de matemática é calculada para cada país e ano, e um gráfico de linha é gerado para comparar a evolução das notas de matemática. As cores dos países são definidas manualmente para facilitar a identificação, com o Brasil destacado em verde. O gráfico final é salvo em formato PNG, oferecendo uma representação clara das tendências de desempenho matemático ao longo do tempo.
+#' 
+## ----Importando dados do PISA, include = TRUE---------------------------------------------------
 # Países do G7 + 5 Maiores América 
 paises = c(
   "CAN", "FRA", "DEU", "ITA", "JPN", "GBR", "USA", "BRA", "ARG", "CHL", "COL", "PER", "VEN", "ECU", "URY", "PRY", "BOL", "GUY", "SUR"
@@ -557,7 +799,9 @@ pisa = pisaall |> filter(country %in% sulamerica)
 
 
 #' 
-## ----Gráfico da média de matemática por ano - Comparação com G7, include = TRUE-----------
+#' O segundo chunk realiza o mesmo processo para os países da América do Sul, focando nas economias da região que participam do PISA. As médias das notas de matemática são calculadas e visualizadas em um gráfico de linha com cores distintas para cada país, destacando o Brasil em verde novamente. Este gráfico também é salvo em PNG para futuras referências.
+#' 
+## ----Gráfico da média de matemática por ano - Comparação com G7, include = TRUE-----------------
 # Filtrar dados dos países do G7 e Brasil
 g7 <- c("CAN", "FRA", "DEU", "ITA", "JPN", "GBR", "USA", "BRA")
 pisa_g7 <- pisaall |> filter(country %in% g7)
@@ -592,7 +836,7 @@ ggsave("grafico_g7.png", plot = grafico_g7, width = 10, height = 6, dpi = 300)
 
 
 #' 
-## ----Gráfico da média de matemática por ano - Comparação com América do Sul, include = TRUE----
+## ----Gráfico da média de matemática por ano - Comparação com América do Sul, include = TRUE-----
 # Filtrar dados dos países da América do Sul
 # Filtrar dados dos países da América do Sul
 sulamerica <- c("BRA", "ARG", "CHL", "COL", "PER", "VEN", "ECU", "URY", "PRY", "BOL", "GUY", "SUR")
@@ -625,4 +869,5 @@ print(grafico_sulamerica)
 
 # Salvar o gráfico usando ggsave
 ggsave("grafico_sulamerica.png", plot = grafico_sulamerica, width = 10, height = 6, dpi = 300)
+
 
