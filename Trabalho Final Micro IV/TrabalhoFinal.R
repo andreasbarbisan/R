@@ -23,25 +23,32 @@
 #' Este chunk define as configurações iniciais do ambiente de trabalho para a análise dos dados. Primeiro, o diretório de trabalho é definido para o caminho específico onde os arquivos estão localizados. Em seguida, as bibliotecas necessárias são carregadas, que são fundamentais para a manipulação dos dados, análise de regressão e geração de relatórios. A base de dados XXXXXXXXXXXXXXxXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXx    
 #' 
 #' 
-## ----setup, include=FALSE----------------------------------------------------------------------------------------
+## ----setup, include=FALSE-----------------------------------------------------------------
 knitr::opts_chunk$set(echo = TRUE)
 Sys.setlocale("LC_CTYPE", "pt_BR.UTF-8")
 # Definição de WD
 setwd("C:/Andreas/Insper/Semestre 5/Microeconomia 4/TrabalhoFinal")
 
 
+knitr::purl("TrabalhoFinal.Rmd", documentation = 2)
+
 # Bibliotecas
 library(dplyr)
 library(plm) 
 library(tidyverse)
+library(ggplot2)
 library(stargazer) 
 library(readxl)
 library(purrr)
+library(viridisLite)
 library(did)
 library(learningtower)
+library(leaflet)
+library(mapview)
+library(webshot)
 
 #' 
-## ----dataset + manipulação de dados, include = FALSE-------------------------------------------------------------
+## ----dataset + manipulação de dados, include = FALSE--------------------------------------
 # Ler bases
 saresp2011 = read_excel("SARESP2011.xlsx") |> rename_with(tolower) |> mutate(ano = 2011, medprof = as.numeric(gsub(",", ".", medprof))) 
 
@@ -61,7 +68,7 @@ saresp2018 = read_excel("SARESP2018.xlsx") |> rename_with(tolower) |> mutate(ano
 
 #' 
 #' 
-## ----manipular bases, include = FALSE----------------------------------------------------------------------------
+## ----manipular bases, include = FALSE-----------------------------------------------------
 # Unir em um único dataframe
 base = rbind(saresp2011, saresp2012, saresp2013, saresp2014, saresp2015, saresp2016, saresp2017, saresp2018)
 
@@ -125,7 +132,7 @@ fundamental_lp = base |> filter(serie_ano == "9º Ano EF", ds_comp == "LÍNGUA P
 #' 
 #' # - Estatísticas Descritivas
 #' 
-## ----Gráfico média por ano, include = TRUE-----------------------------------------------------------------------
+## ----Gráfico médias por anos de adesão, include = FALSE-----------------------------------
 # Agrupamento e cálculo da média, filtrando anos de 2011 até 2018
 df_media = ensino_medio_matematica |> 
   mutate(ano_adesao = case_when(
@@ -146,15 +153,77 @@ ggplot(df_media, aes(x = ano, y = media_medprof, color = ano_adesao, group = ano
   geom_vline(data = df_media |> filter(ano_adesao != "Nunca aderiu" & ano_adesao != "Aderiu após 2018"),
              aes(xintercept = as.numeric(ano_adesao), color = ano_adesao),
              linetype = "solid", size = 1.2) +  # Linhas verticais coloridas apenas para anos específicos de adesão
-  labs(title = "Média da medida de proficiência ao longo do tempo por ano de adesão",
+  labs(title = "Média do SARESP em Matemática no EM por ano de adesão",
        x = "Ano", y = "Média da medida de proficiência", color = "Ano de adesão") +
   theme(legend.position = "bottom") +
   scale_x_continuous(limits = c(2011, 2018), breaks = seq(2011, 2018, by = 1))  # Limitar eixo x de 2011 até 2018 e mostrar todos os anos
 
 
+#' 
+## ----Apenas anos iniciais e finais 2012 2013, include = FALSE-----------------------------
+# Agrupamento e cálculo da média, filtrando apenas as categorias desejadas
+df_media <- ensino_medio_matematica |> 
+  mutate(ano_adesao = case_when(
+    ano_adesao == 0 ~ "Nunca aderiu",
+    ano_adesao == 2012 ~ "2012",
+    ano_adesao == 2013 ~ "2013",
+    ano_adesao > 2018 ~ "Aderiu após 2018",
+    TRUE ~ NA_character_  # Define como NA para valores que não queremos incluir
+  )) |> 
+  filter(!is.na(ano_adesao)) |>  # Filtra para excluir os NA (anos indesejados)
+  filter(ano >= 2011 & ano <= 2018) |>  # Filtrar os dados para os anos de 2011 até 2018
+  group_by(ano, ano_adesao) |> 
+  summarise(media_medprof = mean(medprof, na.rm = TRUE)) |> 
+  ungroup()
+
+# Criar o gráfico com ggplot2
+library(ggplot2)
+
+ggplot(df_media, aes(x = ano, y = media_medprof, color = ano_adesao, group = ano_adesao)) +
+  geom_line(size = 2) +  # Linhas para cada grupo de adesão
+  geom_vline(data = df_media |> filter(ano_adesao %in% c("2012", "2013")),
+             aes(xintercept = as.numeric(ano_adesao), color = ano_adesao),
+             linetype = "solid", size = 1.2) +  # Linhas verticais para 2012 e 2013
+  labs(title = "Média do SARESP em Matemática no EM por ano de adesão",
+       x = "Ano", y = "Média da medida de proficiência", color = "Ano de adesão") +
+  theme(legend.position = "bottom") +
+    scale_color_viridis_d(option = "D") +  # Aplica a paleta viridis para variáveis categóricas
+  scale_x_continuous(limits = c(2011, 2018), breaks = seq(2011, 2018, by = 1))  # Limitar eixo x de 2011 até 2018 e mostrar todos os anos
+
+
 
 #' 
-## ----Gráfico adesão ao longo dos anos, include = TRUE------------------------------------------------------------
+## ----Apenas anos iniciais e finais 2014 2015, include = FALSE-----------------------------
+# Agrupamento e cálculo da média, filtrando apenas as categorias desejadas
+df_media <- ensino_medio_matematica |> 
+  mutate(ano_adesao = case_when(
+    ano_adesao == 0 ~ "Nunca aderiu",
+    ano_adesao == 2014 ~ "2014",
+    ano_adesao == 2015 ~ "2015",
+    ano_adesao > 2018 ~ "Aderiu após 2018",
+    TRUE ~ NA_character_  # Define como NA para valores que não queremos incluir
+  )) |> 
+  filter(!is.na(ano_adesao)) |>  # Filtra para excluir os NA (anos indesejados)
+  filter(ano >= 2011 & ano <= 2018) |>  # Filtrar os dados para os anos de 2011 até 2018
+  group_by(ano, ano_adesao) |> 
+  summarise(media_medprof = mean(medprof, na.rm = TRUE)) |> 
+  ungroup()
+
+ggplot(df_media, aes(x = ano, y = media_medprof, color = ano_adesao, group = ano_adesao)) +
+  geom_line(size = 2) +  # Linhas para cada grupo de adesão
+  geom_vline(data = df_media |> filter(ano_adesao %in% c("2014", "2015")),
+             aes(xintercept = as.numeric(ano_adesao), color = ano_adesao),
+             linetype = "solid", size = 1.2) +  # Linhas verticais para 2014 e 2015
+  labs(title = "Média do SARESP em Matemática no EM por ano de adesão",
+       x = "Ano", y = "Média da medida de proficiência", color = "Ano de adesão") +
+  theme(legend.position = "bottom") +
+  scale_color_viridis_d(option = "D") +  # Aplica a paleta viridis para variáveis categóricas
+  scale_x_continuous(limits = c(2011, 2018), breaks = seq(2011, 2018, by = 1))  # Limitar eixo x de 2011 até 2018 e mostrar todos os anos
+
+
+#' 
+#' 
+## ----Gráfico quantidade de adesão ao longo dos anos, include = TRUE-----------------------
 # Agrupar por ano_adesao e calcular o somatório de observações em cada ano
 soma_ano_adesao <- escolaspei |> 
   group_by(ano_adesao) |> 
@@ -182,12 +251,42 @@ ggplot(soma_ano_adesao, aes(x = ano_adesao, y = soma_acumulada)) +
 
 
 #' 
+## ----Gráfico georeferênciado, include = TRUE----------------------------------------------
+# Criando dataframe do mapa
+georrenf = escolaspei |> 
+  filter(ano_adesao <= 2018) |> 
+  arrange(desc(ano_adesao)) |>
+  select(nomesc, ds_latitude, ds_longitude, ano_adesao)
+
+# Crie o mapa com leaflet
+map1 <- leaflet(data = georrenf) |>
+    setView(lng = -48.5570, lat = -22.2963, zoom = 7.4) |> 
+  addProviderTiles(providers$OpenStreetMap) |>
+  addCircleMarkers(
+    ~ds_longitude, ~ds_latitude,
+    color = ~ifelse(ano_adesao == 2012, "blue", "red"),
+    radius = 2,
+    label = ~nomesc,
+    fillOpacity = 0.8,
+    opacity = 0.7
+  ) |>
+  addLegend("bottomright", 
+            colors = c("blue", "red"), 
+            labels = c("2012", "2018"), 
+            title = "Escolas Integrais em São Paulo")
+
+# Salvar o mapa como imagem
+mapshot(map1,
+        file = "mapa_exportado.png")
+
+
+#' 
 #' 
 #' # - Estimação DiD
 #' 
 #' Estimação Did blabkabkakbakbkab
 #' 
-## ----diff in diff EM Matemática, include = FALSE-----------------------------------------------------------------
+## ----diff in diff EM Matemática, include = FALSE------------------------------------------
 # DiD
 
 did_matematicaEM <- att_gt(
@@ -212,7 +311,7 @@ esEMMAT = aggte(did_matematicaEM, type = "dynamic")
 ggdid(esEMMAT)
 
 #' 
-## ----diff in diff EM Português, include = FALSE------------------------------------------------------------------
+## ----diff in diff EM Português, include = FALSE-------------------------------------------
 # DiD
 
 did_portuguesEM <- att_gt(
@@ -237,7 +336,7 @@ esEMLP = aggte(did_portuguesEM, type = "dynamic")
 ggdid(esEMLP)
 
 #' 
-## ----diff in diff EF Matemática, include = FALSE-----------------------------------------------------------------
+## ----diff in diff EF Matemática, include = FALSE------------------------------------------
 # DiD
 
 did_matematicaEF <- att_gt(
@@ -262,7 +361,7 @@ esEFMAT = aggte(did_matematicaEF, type = "dynamic", na.rm = TRUE)
 ggdid(esEFMAT)
 
 #' 
-## ----diff in diff EF Português, include = FALSE------------------------------------------------------------------
+## ----diff in diff EF Português, include = FALSE-------------------------------------------
 # DiD
 
 did_portuguesEF <- att_gt(
@@ -290,7 +389,7 @@ ggdid(esEFLP)
 #' 
 #' # - Normalizar notas para DiD
 #' 
-## ----manipulação EM matemática, include = FALSE------------------------------------------------------------------
+## ----manipulação EM matemática, include = FALSE-------------------------------------------
 
 ensino_medio_matematica <- ensino_medio_matematica |> 
   group_by(ano) |> 
@@ -322,7 +421,7 @@ ggdid(norm_esEMMAT)
 
 
 #' 
-## ----manipulação EM português, include = FALSE-------------------------------------------------------------------
+## ----manipulação EM português, include = FALSE--------------------------------------------
 
 ensino_medio_lp <- ensino_medio_lp |> 
   group_by(ano) |> 
@@ -353,7 +452,7 @@ ggdid(norm_esEMPLP)
 
 
 #' 
-## ----manipulação fundamental português, include = FALSE----------------------------------------------------------
+## ----manipulação fundamental português, include = FALSE-----------------------------------
 
 fundamental_lp <- fundamental_lp |> 
   group_by(ano) |> 
@@ -384,7 +483,7 @@ ggdid(norm_esFundLP)
 
 
 #' 
-## ----manipulação fundamental matemática, include = FALSE---------------------------------------------------------
+## ----manipulação fundamental matemática, include = FALSE----------------------------------
 
 fundamental_matematica <- fundamental_matematica |> 
   group_by(ano) |> 
@@ -415,10 +514,36 @@ ggdid(norm_esFundMat)
 
 #' 
 #' 
+#' # - Probabilidade de estar Avançado
+#' 
+## ----Probabilidade e novo DiD, include = TRUE---------------------------------------------
+ensino_medio_matematica = ensino_medio_matematica |> 
+  mutate(basico = ifelse(medprof > 275, 1, 0))
+
+didbasico <- att_gt(
+  yname = "basico",
+  gname = "ano_adesao",
+  idname = "codesc",
+  tname = "ano",
+  xformla = ~1,
+  data = ensino_medio_matematica,
+  est_method = "reg",
+  control_group = "notyettreated",
+  panel = TRUE)
+
+summary(didbasico)
+
+ggdid(didbasico)
+
+didgraficobasico = aggte(didbasico, type = "dynamic", na.rm = TRUE)
+
+ggdid(didgraficobasico)
+
+
 #' 
 #' # - Comparação Internacional com PISA
 #' 
-## ----Importando dados do PISA, include = TRUE--------------------------------------------------------------------
+## ----Importando dados do PISA, include = TRUE---------------------------------------------
 # Países do G7 + 5 Maiores América 
 paises = c(
   "CAN", "FRA", "DEU", "ITA", "JPN", "GBR", "USA", "BRA", "ARG", "CHL", "COL", "PER", "VEN", "ECU", "URY", "PRY", "BOL", "GUY", "SUR"
@@ -432,7 +557,7 @@ pisa = pisaall |> filter(country %in% sulamerica)
 
 
 #' 
-## ----Gráfico da média de matemática por ano - Comparação com G7, include = TRUE----------------------------------
+## ----Gráfico da média de matemática por ano - Comparação com G7, include = TRUE-----------
 # Filtrar dados dos países do G7 e Brasil
 g7 <- c("CAN", "FRA", "DEU", "ITA", "JPN", "GBR", "USA", "BRA")
 pisa_g7 <- pisaall |> filter(country %in% g7)
@@ -467,7 +592,7 @@ ggsave("grafico_g7.png", plot = grafico_g7, width = 10, height = 6, dpi = 300)
 
 
 #' 
-## ----Gráfico da média de matemática por ano - Comparação com América do Sul, include = TRUE----------------------
+## ----Gráfico da média de matemática por ano - Comparação com América do Sul, include = TRUE----
 # Filtrar dados dos países da América do Sul
 # Filtrar dados dos países da América do Sul
 sulamerica <- c("BRA", "ARG", "CHL", "COL", "PER", "VEN", "ECU", "URY", "PRY", "BOL", "GUY", "SUR")
@@ -500,6 +625,4 @@ print(grafico_sulamerica)
 
 # Salvar o gráfico usando ggsave
 ggsave("grafico_sulamerica.png", plot = grafico_sulamerica, width = 10, height = 6, dpi = 300)
-
-
 
