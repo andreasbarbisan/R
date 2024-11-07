@@ -27,7 +27,7 @@ Este chunk define as configurações iniciais do ambiente de trabalho para a an�
 knitr::opts_chunk$set(echo = TRUE)
 Sys.setlocale("LC_CTYPE", "pt_BR.UTF-8")
 # Definição de WD
-#setwd("C:/Andreas/Insper/Semestre 5/Microeconomia 4/TrabalhoFinal")
+setwd("C:/Andreas/Insper/Semestre 5/Microeconomia 4/TrabalhoFinal")
 
 
 # Bibliotecas
@@ -44,7 +44,6 @@ library(learningtower)
 library(leaflet)
 library(mapview)
 library(webshot)
-
 ```
 
 ```{r dataset + manipulação de dados, include = FALSE}
@@ -131,7 +130,7 @@ fundamental_lp = base |> filter(serie_ano == "9º Ano EF", ds_comp == "LÍNGUA P
 
 # - Estatísticas Descritivas
 
-```{r Gráfico médias por anos de adesão, include = TRUE}
+```{r Gráfico médias por anos de adesão, include = FALSE}
 # Agrupamento e cálculo da média, filtrando anos de 2011 até 2018
 df_media = ensino_medio_matematica |> 
   mutate(ano_adesao = case_when(
@@ -159,7 +158,7 @@ ggplot(df_media, aes(x = ano, y = media_medprof, color = ano_adesao, group = ano
 
 ```
 
-```{r Apenas anos iniciais e finais 2012 2013, include = TRUE}
+```{r Apenas anos iniciais e finais 2012 2013, include = FALSE}
 # Agrupamento e cálculo da média, filtrando apenas as categorias desejadas
 df_media <- ensino_medio_matematica |> 
   mutate(ano_adesao = case_when(
@@ -192,7 +191,7 @@ ggplot(df_media, aes(x = ano, y = media_medprof, color = ano_adesao, group = ano
 
 ```
 
-```{r Apenas anos iniciais e finais 2014 2015, include = TRUE}
+```{r Apenas anos iniciais e finais 2014 2015, include = FALSE}
 # Agrupamento e cálculo da média, filtrando apenas as categorias desejadas
 df_media <- ensino_medio_matematica |> 
   mutate(ano_adesao = case_when(
@@ -252,31 +251,31 @@ ggplot(soma_ano_adesao, aes(x = ano_adesao, y = soma_acumulada)) +
 
 ```{r Gráfico georeferênciado, include = TRUE}
 # Criando dataframe do mapa
-
 georrenf = escolaspei |> 
   filter(ano_adesao <= 2018) |> 
   arrange(desc(ano_adesao)) |>
   select(nomesc, ds_latitude, ds_longitude, ano_adesao)
 
 # Crie o mapa com leaflet
-map1 <- leaflet(data = georrenf) %>%
-  addProviderTiles(providers$OpenStreetMap) %>%
+map1 <- leaflet(data = georrenf) |>
+    setView(lng = -48.5570, lat = -22.2963, zoom = 7.4) |> 
+  addProviderTiles(providers$OpenStreetMap) |>
   addCircleMarkers(
     ~ds_longitude, ~ds_latitude,
-    color = ~ifelse(ano_adesao == 2012, "darkred", "red"),
+    color = ~ifelse(ano_adesao == 2012, "blue", "red"),
     radius = 2,
     label = ~nomesc,
     fillOpacity = 0.8,
     opacity = 0.7
-  ) %>%
+  ) |>
   addLegend("bottomright", 
-            colors = c("darkred", "red"), 
+            colors = c("blue", "red"), 
             labels = c("2012", "2018"), 
             title = "Escolas Integrais em São Paulo")
 
 # Salvar o mapa como imagem
-mapshot(map1, file = "mapa_exportado.png") # Pode salvar como .png ou .jpeg
-
+mapshot(map1,
+        file = "mapa_exportado.png")
 
 ```
 
@@ -513,6 +512,32 @@ ggdid(norm_esFundMat)
 ```
 
 
+# - Probabilidade de estar Avançado
+
+```{r Probabilidade e novo DiD, include = TRUE}
+ensino_medio_matematica = ensino_medio_matematica |> 
+  mutate(basico = ifelse(medprof > 275, 1, 0))
+
+didbasico <- att_gt(
+  yname = "basico",
+  gname = "ano_adesao",
+  idname = "codesc",
+  tname = "ano",
+  xformla = ~1,
+  data = ensino_medio_matematica,
+  est_method = "reg",
+  control_group = "notyettreated",
+  panel = TRUE)
+
+summary(didbasico)
+
+ggdid(didbasico)
+
+didgraficobasico = aggte(didbasico, type = "dynamic", na.rm = TRUE)
+
+ggdid(didgraficobasico)
+
+```
 
 # - Comparação Internacional com PISA
 
@@ -598,6 +623,4 @@ print(grafico_sulamerica)
 
 # Salvar o gráfico usando ggsave
 ggsave("grafico_sulamerica.png", plot = grafico_sulamerica, width = 10, height = 6, dpi = 300)
-
-
 ```
